@@ -1,0 +1,56 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  * {
+    box-sizing: border-box;
+  }
+
+  body {
+    margin: 0;
+    min-width: 320px;
+    background:
+      linear-gradient(135deg, rgba(19, 165, 141, 0.08), transparent 26%),
+      linear-gradient(315deg, rgba(246, 158, 11, 0.08), transparent 28%),
+      #f6f8f7;
+    color: #142027;
+    font-family: theme("fontFamily.sans");
+  }
+
+  button,
+  input,
+  textarea,
+  select {
+    font: inherit;
+    max-width: 100%;
+  }
+
+  ::selection {
+    background: rgba(19, 165, 141, 0.18);
+  }
+}
+
+@layer components {
+  .field-label {
+    @apply mb-1.5 block text-[12px] font-semibold text-ink-600;
+  }
+
+  .field-control {
+    @apply w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-sm text-ink-950 outline-none transition focus:border-radar-500 focus:ring-4 focus:ring-radar-100;
+  }
+
+  .panel {
+    @apply min-w-0 max-w-full border border-slate-200 bg-white shadow-panel;
+    border-radius: 8px;
+  }
+
+  .quiet-panel {
+    @apply min-w-0 max-w-full border border-slate-200 bg-white/75;
+    border-radius: 8px;
+  }
+
+  .icon-button {
+    @apply inline-flex h-9 w-9 items-center justify-center rounded-md border border-slate-200 bg-white text-ink-600 transition hover:border-radar-200 hover:text-radar-700 focus:outline-none focus:ring-4 focus:ring-radar-100;
+  }
+}
