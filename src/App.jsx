@@ -1,6 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
 import DataModelPreview from "./components/DataModelPreview";
-import AISafetyPanel from "./components/AISafetyPanel";
 import GroupModuleCard from "./components/GroupModuleCard";
 import ModuleRail from "./components/ModuleRail";
 import QAPanel from "./components/QAPanel";
@@ -169,6 +168,19 @@ export default function App() {
           lastGeneratedAt: new Date().toISOString(),
         }))
       );
+
+      if (moduleId === "ai-safety") {
+        setState((current) =>
+          updateModule(current, moduleId, (moduleState) => ({
+            ...moduleState,
+            isGeneratingDialogue: false,
+            generationError: "",
+            generationNotice:
+              "AI 安全已用本地资料库生成；为保证安全边界和真实语气，本模块暂不自动调用外部模型。",
+          }))
+        );
+        return;
+      }
 
       try {
         const apiResult = await generateGroupDialogue({
@@ -426,21 +438,17 @@ export default function App() {
         />
 
         <div className="min-w-0 space-y-5">
-          {selectedModule.id === "ai-safety" ? (
-            <AISafetyPanel settings={state.settings} module={selectedModule} />
-          ) : (
-            <GroupModuleCard
-              module={selectedModule}
-              moduleState={selectedModuleState}
-              settings={state.settings}
-              onInputChange={handleInputChange}
-              onGenerateDialogues={handleGenerateDialogues}
-              onToggleDialoguePublished={handleToggleDialoguePublished}
-              onDialogueEffectChange={handleDialogueEffectChange}
-              onSaveTrialRecord={handleSaveTrialRecord}
-              trialGroupNames={state.meta?.trialGroupNames || []}
-            />
-          )}
+          <GroupModuleCard
+            module={selectedModule}
+            moduleState={selectedModuleState}
+            settings={state.settings}
+            onInputChange={handleInputChange}
+            onGenerateDialogues={handleGenerateDialogues}
+            onToggleDialoguePublished={handleToggleDialoguePublished}
+            onDialogueEffectChange={handleDialogueEffectChange}
+            onSaveTrialRecord={handleSaveTrialRecord}
+            trialGroupNames={state.meta?.trialGroupNames || []}
+          />
         </div>
 
         <div className="min-w-0 space-y-5">

@@ -88,6 +88,7 @@ function buildAutoAngles(moduleId, timeNode) {
     secondhand: ["床品小家电", "二手价格和成色", "取货区域和安全交易"],
     college: ["选课", "同专业互认", "reading list"],
     language: ["语言班室友", "口语搭子", "住宿衔接"],
+    "ai-safety": ["AI指控邮件阶段", "reference/citation自查", "AI率和写作过程焦虑"],
   };
 
   return moduleAngles[moduleId] || moduleAngles.alumni;
@@ -208,6 +209,21 @@ function buildFallbackTurns({ moduleId, angle, school, seed }) {
       { speakerType: "student", speaker: studentName(seed, 6), text: "有人是先短租再搬正课宿舍的吗" },
       { speakerType: "senior", speaker: "学姐号", text: "可以先把入住和退房日期对齐，别只看价格，衔接不上会很麻烦。" },
       { speakerType: "student", speaker: studentName(seed, 7), text: "懂了 我先把日期整理出来" },
+    ];
+  }
+
+  if (moduleId === "ai-safety") {
+    return [
+      { speakerType: "student", speaker: studentName(seed, 0), text: `有人最近遇到${topic}这种情况吗，我现在有点慌` },
+      { speakerType: "student", speaker: studentName(seed, 1), text: "我也想问这个，不知道是不是已经算正式指控" },
+      { speakerType: "student", speaker: studentName(seed, 2), text: "邮件里几个词看得我头大，怕理解错" },
+      { speakerType: "senior", speaker: "学姐号", text: "先别自己吓自己，先看邮件写的是 possible、investigation、meeting 还是 hearing，阶段不一样。" },
+      { speakerType: "student", speaker: studentName(seed, 3), text: "那现在要不要先写解释啊" },
+      { speakerType: "student", speaker: studentName(seed, 4), text: "我怕说多了反而不好" },
+      { speakerType: "student", speaker: studentName(seed, 5), text: "有没有人知道先整理什么材料" },
+      { speakerType: "student", speaker: studentName(seed, 6), text: "不用发隐私，我就想知道大概流程" },
+      { speakerType: "senior", speaker: "学姐号", text: "先把邮件、deadline、brief、草稿版本、reference 记录放一起。别求降AI，也别复制别人的解释模板。" },
+      { speakerType: "student", speaker: studentName(seed, 7), text: "好 我先把材料整理出来再说" },
     ];
   }
 
@@ -382,10 +398,22 @@ ${publishedSamples || "暂无"}
 真实聊天记录里的短句语气样本，生成时优先模仿这种颗粒度和口气：
 ${styleSamples.map((sample, index) => `${index + 1}. ${sample}`).join("\n")}
 `;
+  const aiSafetyRules =
+    moduleId === "ai-safety"
+      ? `
+
+AI 安全模块额外资料与边界：
+- 可生成的群聊方向：AI指控邮件、possible/suspected academic misconduct、Teams/meeting/hearing、reference/citation出错、AI率焦虑、course AI policy、写作过程证据链、lecture到outline的学习流程。
+- 安全边界：不写降AI、不写改到0、不写规避检测、不承诺撤控/无处罚/申诉成功、不鼓励打死不认或糊弄老师。
+- 允许表达：先看邮件阶段、保存deadline、brief、rubric、草稿版本、reference记录；核验文献真实性；按课程AI policy判断；必要时人工复核。
+- 学姐号语气要短：例如“先别自己吓自己”“别急着写一大段解释”“先把邮件关键词圈出来”“reference先逐条核验”。
+`
+      : "";
   const prompt = `
 你是留学生微信群运营助手。请基于资料生成 ${dialogueCount} 段可直接复制到微信群里的真实模拟对话。
 
 ${baseContext}
+${aiSafetyRules}
 
 本次要覆盖的角度：
 ${angles.map((angle, index) => `${index + 1}. ${angle}`).join("\n")}
@@ -432,6 +460,7 @@ ${angles.map((angle, index) => `${index + 1}. ${angle}`).join("\n")}
 - 各学院群：选课、专业、reading list、同专业互认。
 - 语言班：室友、住宿衔接、口语搭子、到校时间。
 - 校友群：CAS、offer、押金、住宿、注册、入学准备。
+- AI 安全：学术诚信、AI指控、reference/citation、meeting/hearing、AI率焦虑、学习流程和证据链整理。
 `;
 
   let rawDialogues = [];

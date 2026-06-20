@@ -2,6 +2,7 @@ import {
   chatConversationCorpus,
   defaultChatVoiceAnchors,
 } from "../data/chatConversationCorpus";
+import { aiSafetyTopics } from "../data/aiSafetyDialogueCorpus";
 import { detectIntent, extractMonthFromText, findSchoolProfileByPrompt } from "./chatConversationEngine";
 
 const moduleAngles = {
@@ -10,6 +11,7 @@ const moduleAngles = {
   secondhand: ["二手价格", "床品小家电", "取货和安全交易"],
   college: ["选课和课表", "同专业找人", "reading list"],
   language: ["语言班住宿", "口语搭子", "正课衔接"],
+  "ai-safety": ["AI指控邮件", "reference/citation自查", "AI率焦虑"],
 };
 
 const monthAngles = {
@@ -75,6 +77,107 @@ function pickRecords(profile, { month, moduleId, query }) {
     .sort((a, b) => b.score - a.score)
     .slice(0, 4)
     .map((item) => item.record);
+}
+
+function scoreAISafetyTopic(topic, { school, query }) {
+  const normalized = normalizeKey(`${school} ${query}`);
+  let score = 0;
+
+  topic.schools.forEach((schoolName) => {
+    if (normalized.includes(normalizeKey(schoolName))) score += 6;
+  });
+  topic.keywords.forEach((keyword) => {
+    if (normalized.includes(normalizeKey(keyword))) score += 3;
+  });
+  if (topic.angle && normalized.includes(normalizeKey(topic.angle).slice(0, 8))) score += 3;
+
+  return score;
+}
+
+function pickAISafetyTopics({ school, query, recentDiscussion }) {
+  const scored = aiSafetyTopics
+    .map((topic) => ({
+      topic,
+      score: scoreAISafetyTopic(topic, { school, query: `${query} ${recentDiscussion || ""}` }),
+    }))
+    .sort((a, b) => b.score - a.score);
+
+  const top = scored.filter((item) => item.score > 0).map((item) => item.topic);
+
+  if (recentDiscussion?.trim()) {
+    return (top.length ? top : aiSafetyTopics).slice(0, 1);
+  }
+
+  const topIds = new Set(top.map((topic) => topic.id));
+  const filledTopics = [...top, ...aiSafetyTopics.filter((topic) => !topIds.has(topic.id))];
+
+  return filledTopics.slice(0, 3);
+}
+
+function tweakAISafetyTurns(turns, recentDiscussion, variant) {
+  if (!recentDiscussion?.trim()) return turns;
+
+  const prompt = compact(recentDiscussion, 42);
+  const studentOpeners = [
+    `有人遇到过“${prompt}”这种情况吗，我现在有点慌`,
+    `我也想问这个，主要是不知道现在算不算正式指控`,
+    `先别发隐私，我就想知道一般先看邮件哪里`,
+  ];
+
+  return turns.map((turn, index) => {
+    if (index < 3 && turn.speakerType === "student") {
+      return { ...turn, text: studentOpeners[(index + variant) % studentOpeners.length] };
+    }
+    return turn;
+  });
+}
+
+function buildAISafetyDialogues({ school, moduleName, timeNode, recentDiscussion, publishedDialogues }) {
+  const query = `${school} ${timeNode} ${recentDiscussion || ""}`;
+  const topics = pickAISafetyTopics({ school, query, recentDiscussion });
+  const publishedKeys = new Set(publishedDialogues.map((dialogue) => normalizeKey(dialogue.key || dialogue.copyText)));
+  const generated = [];
+
+  for (let attempt = 0; generated.length < topics.length && attempt < topics.length + 8; attempt += 1) {
+    const topic = topics[attempt % topics.length];
+    const turns = tweakAISafetyTurns(topic.turns, recentDiscussion, attempt).map((turn) => ({ ...turn }));
+    const copyText = copyFromTurns(turns);
+    const key = normalizeKey(copyText);
+
+    if (publishedKeys.has(key)) {
+      continue;
+    }
+
+    generated.push({
+      id: `ai-safety-dialogue-${Date.now()}-${attempt}`,
+      key,
+      title: `${moduleName}热聊：${compact(topic.angle, 24)}`,
+      angle: recentDiscussion?.trim() ? recentDiscussion.trim() : topic.angle,
+      summary: `根据 AI 指控批次资料，把「${compact(recentDiscussion || topic.angle, 28)}」转成可直接发群的安全边界对话。`,
+      copyText,
+      turns,
+      followUps: topic.followUps,
+      sourceNote: `本地资料库模式：参考 ${topic.source}。安全边界：不写降AI/规避检测/保证撤控，只做邮件阶段、材料整理和学习流程提醒。`,
+      published: false,
+      effect: "未选择",
+      localMode: true,
+    });
+    publishedKeys.add(key);
+  }
+
+  return {
+    dialogues: generated,
+    historyDialogues: topics.map((topic) => ({
+      id: topic.id,
+      sourceTitle: "项目三_AI指控批次_微信群话题模板_可复制版.md",
+      sourceType: "AI安全资料库",
+      dateLabel: "AI指控批次",
+      category: topic.angle,
+      text: topic.turns.map((turn) => `${turn.speaker}：${turn.text}`).join("\n"),
+    })),
+    fallbackUsed: false,
+    localMode: true,
+  };
 }
 
 function inferTopic({ recentDiscussion, angle, moduleId }) {
@@ -466,6 +569,16 @@ export function generateLocalGroupDialogues({
   recentDiscussion,
   publishedDialogues = [],
 }) {
+  if (moduleId === "ai-safety") {
+    return buildAISafetyDialogues({
+      school,
+      moduleName,
+      timeNode,
+      recentDiscussion,
+      publishedDialogues,
+    });
+  }
+
   const prompt = `${school} ${timeNode} ${recentDiscussion || ""}`;
   const profile = findSchoolProfileByPrompt(prompt, school);
   const month = extractMonthFromText(recentDiscussion) || extractMonthFromText(timeNode) || "6月";
