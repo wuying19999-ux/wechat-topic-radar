@@ -164,7 +164,7 @@ export default function App() {
           historyDialogues: localResult.historyDialogues || [],
           isGeneratingDialogue: true,
           generationError: "",
-          generationNotice: "已先用本地资料库生成，正在用 DeepSeek 优化语气；如果接口慢，会保留当前版本。",
+          generationNotice: "已用本地资料库生成，可先复制使用；系统会尝试补充模型优化版本。",
           lastGeneratedAt: new Date().toISOString(),
         }))
       );
@@ -205,7 +205,7 @@ export default function App() {
             isGeneratingDialogue: false,
             generationError: "",
             generationNotice: apiResult.fallbackUsed
-              ? "DeepSeek 本次没有稳定返回，已保留资料库兜底版本。"
+              ? "已生成完成：当前使用本地资料库版本，模型优化本次未覆盖。"
               : `已用 ${apiResult.provider || "DeepSeek"} 优化生成；发布前仍需人工复核。`,
             lastGeneratedAt: new Date().toISOString(),
           }))
@@ -217,7 +217,7 @@ export default function App() {
             ...moduleState,
             isGeneratingDialogue: false,
             generationError: "",
-            generationNotice: "DeepSeek 这次没稳定返回，已保留本地资料库版本；可以继续使用或再点一次生成。",
+            generationNotice: "已生成完成：当前使用本地资料库版本，可直接复制使用；模型优化稍后可再试。",
           }))
         );
       }
