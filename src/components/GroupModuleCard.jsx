@@ -80,16 +80,20 @@ function DialogueCard({
 
   return (
     <article className="rounded-md border border-slate-200 bg-white p-4">
-      <div className="flex flex-col gap-3 xl:flex-row xl:items-start xl:justify-between">
+      <div className="flex flex-col gap-3">
         <div className="min-w-0">
-          <div className="flex flex-wrap items-center gap-2 text-sm font-bold text-ink-950">
+          <div className="grid grid-cols-[auto_auto_minmax(0,1fr)] items-start gap-2 text-sm font-bold text-ink-950">
             <span className="inline-flex h-7 w-7 items-center justify-center rounded-md bg-ink-950 text-xs text-white">
               {index + 1}
             </span>
             <MessageSquareText size={17} />
-            <span>{dialogue.title}</span>
+            <span className="min-w-0 whitespace-normal leading-6 [overflow-wrap:anywhere] [word-break:normal]">
+              {dialogue.title}
+            </span>
           </div>
-          <p className="mt-2 text-sm leading-6 text-ink-600">{dialogue.summary}</p>
+          <p className="mt-2 min-w-0 text-sm leading-6 text-ink-600 [overflow-wrap:anywhere] [word-break:normal]">
+            {dialogue.summary}
+          </p>
           <div className="mt-3 flex flex-wrap gap-2 text-xs font-bold">
             <span className="rounded bg-radar-50 px-2 py-1 text-radar-800">{turns.length} 回合</span>
             <span className="rounded bg-amber-50 px-2 py-1 text-amber-800">学姐 {seniorCount}</span>
@@ -100,7 +104,7 @@ function DialogueCard({
           </div>
         </div>
 
-        <div className="grid shrink-0 gap-2 sm:grid-cols-3 xl:min-w-[360px]">
+        <div className="grid gap-2 sm:grid-cols-3">
           <label className="inline-flex h-10 items-center justify-center gap-2 rounded-md border border-slate-200 bg-white px-3 text-sm font-bold text-ink-700">
             <input
               type="checkbox"
