@@ -7,7 +7,7 @@ import TopControls from "./components/TopControls";
 import TrialDataDashboard from "./components/TrialDataDashboard";
 import TestingBugDashboard from "./components/TestingBugDashboard";
 import { getDefaultCountryForSchool, groupModules } from "./data/sampleData";
-import { answerQuestion, generateGroupDialogue, savePublishedTopic, saveTrialRecord } from "./lib/apiClient";
+import { answerQuestion, savePublishedTopic, saveTrialRecord } from "./lib/apiClient";
 import { generateLocalGroupDialogues } from "./lib/localDialogueEngine";
 import { loadState, saveState } from "./lib/storage";
 
@@ -162,65 +162,12 @@ export default function App() {
             moduleState
           ),
           historyDialogues: localResult.historyDialogues || [],
-          isGeneratingDialogue: true,
+          isGeneratingDialogue: false,
           generationError: "",
-          generationNotice: "已先按资料库生成一版；系统正在尝试用模型优化语气。",
+          generationNotice: "已按过往聊天记录生成，可直接复制使用。",
           lastGeneratedAt: new Date().toISOString(),
         }))
       );
-
-      if (moduleId === "ai-safety") {
-        setState((current) =>
-          updateModule(current, moduleId, (moduleState) => ({
-            ...moduleState,
-            isGeneratingDialogue: false,
-            generationError: "",
-            generationNotice:
-              "AI 安全已按专项资料库生成；涉及学术诚信边界，发布前请人工看一眼。",
-          }))
-        );
-        return;
-      }
-
-      try {
-        const apiResult = await generateGroupDialogue({
-          school: state.settings.school,
-          country: state.settings.country,
-          moduleId,
-          moduleName: selectedModule.name,
-          activity: moduleSnapshot.inputs.activity,
-          timeNode: moduleSnapshot.inputs.timeNode,
-          recentDiscussion: moduleSnapshot.inputs.recentDiscussion,
-          publishedDialogues: moduleSnapshot.publishedDialogues || [],
-        });
-
-        setState((current) =>
-          updateModule(current, moduleId, (moduleState) => ({
-            ...moduleState,
-            dialogues: decorateDialogues(
-              apiResult.dialogues?.length ? apiResult.dialogues : [apiResult],
-              moduleState
-            ),
-            historyDialogues: apiResult.historyDialogues || moduleState.historyDialogues || [],
-            isGeneratingDialogue: false,
-            generationError: "",
-            generationNotice: apiResult.fallbackUsed
-              ? "已生成完成：模型本次未稳定返回，已保留资料库版本，可直接复制使用。"
-              : `已用 ${apiResult.provider || "DeepSeek"} 优化生成；发布前仍需人工复核。`,
-            lastGeneratedAt: new Date().toISOString(),
-          }))
-        );
-      } catch (apiError) {
-        console.warn("DeepSeek dialogue enhancement failed, keeping local result:", apiError);
-        setState((current) =>
-          updateModule(current, moduleId, (moduleState) => ({
-            ...moduleState,
-            isGeneratingDialogue: false,
-            generationError: "",
-            generationNotice: "模型优化暂时没回来，已保留资料库版本，可直接复制使用。",
-          }))
-        );
-      }
     } catch (error) {
       console.error(error);
       setState((current) =>
