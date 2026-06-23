@@ -10,7 +10,7 @@ import {
   Sparkles,
 } from "lucide-react";
 import React, { useState } from "react";
-import { activityOptions, effectOptions, timeNodeOptions } from "../data/sampleData";
+import { activityOptions, effectOptions, getTimeNodeOptionsForModule } from "../data/sampleData";
 import { schoolKnowledge } from "../data/schoolKnowledge";
 
 function DialogueBubble({ turn, index }) {
@@ -418,6 +418,8 @@ export default function GroupModuleCard({
       ? [moduleState.dialogue]
       : [];
   const publishedCount = moduleState.publishedDialogues?.length || 0;
+  const timeNodeOptions = getTimeNodeOptionsForModule(module.id);
+  const timeNodeLabel = module.id === "ai-safety" ? "当前学习节点" : "当前时间节点";
 
   async function handleCopyDialogue(dialogue) {
     if (!dialogue?.copyText) {
@@ -470,7 +472,7 @@ export default function GroupModuleCard({
           </label>
 
           <label>
-            <span className="field-label">当前时间节点</span>
+            <span className="field-label">{timeNodeLabel}</span>
             <select
               className="field-control"
               value={moduleState.inputs.timeNode}

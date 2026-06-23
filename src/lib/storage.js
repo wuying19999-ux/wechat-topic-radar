@@ -3,8 +3,8 @@ import {
   getDefaultCountryForSchool,
   groupModules,
   initialPublishedTopics,
+  getTimeNodeOptionsForModule,
   schools,
-  timeNodeOptions,
 } from "../data/sampleData";
 import { generateChatConversation } from "./chatConversationEngine";
 import { createSeedTopics } from "./topicEngine";
@@ -15,13 +15,14 @@ export function createInitialState() {
   const modules = Object.fromEntries(
     groupModules.map((module) => {
       const topics = createSeedTopics(module.id, initialPublishedTopics[module.id] || []);
+      const moduleTimeNodeOptions = getTimeNodeOptionsForModule(module.id);
 
       return [
         module.id,
         {
           inputs: {
             activity: activityOptions[1],
-            timeNode: timeNodeOptions[0],
+            timeNode: moduleTimeNodeOptions[0],
             recentDiscussion: "",
           },
           dialogue: null,
@@ -88,6 +89,12 @@ function normalizeStoredModules(initialModules, storedModules = {}) {
       const storedModuleState = storedModules[module.id] || {};
       const topics = storedModuleState.topics || initialModuleState.topics;
       const topicsByTitle = new Map(topics.map((topic) => [topic.title, topic]));
+      const moduleTimeNodeOptions = getTimeNodeOptionsForModule(module.id);
+      const storedInputs = storedModuleState.inputs || {};
+      const storedTimeNode = storedInputs.timeNode;
+      const timeNode = moduleTimeNodeOptions.includes(storedTimeNode)
+        ? storedTimeNode
+        : initialModuleState.inputs.timeNode;
 
       return [
         module.id,
@@ -100,7 +107,8 @@ function normalizeStoredModules(initialModules, storedModules = {}) {
           historyDialogues: storedModuleState.historyDialogues || [],
           inputs: {
             ...initialModuleState.inputs,
-            ...(storedModuleState.inputs || {}),
+            ...storedInputs,
+            timeNode,
           },
           publishedArchive: (storedModuleState.publishedArchive || initialModuleState.publishedArchive).map(
             (archived) => ({

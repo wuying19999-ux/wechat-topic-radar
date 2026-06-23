@@ -2,7 +2,7 @@ import { AlertTriangle, Copy, ShieldCheck, Sparkles } from "lucide-react";
 import React, { useState } from "react";
 import { aiSafetyRiskTypes, generateLocalAISafetyResponse } from "../lib/aiSafetyEngine";
 import { generateAISafety } from "../lib/apiClient";
-import { timeNodeOptions } from "../data/sampleData";
+import { aiSafetyTimeNodeOptions } from "../data/sampleData";
 
 function OutputBlock({ title, value, tone = "default" }) {
   const toneClass =
@@ -34,7 +34,7 @@ function OutputBlock({ title, value, tone = "default" }) {
 export default function AISafetyPanel({ settings, module }) {
   const [form, setForm] = useState({
     groupType: "校友群",
-    timeNode: timeNodeOptions[1],
+    timeNode: aiSafetyTimeNodeOptions[0],
     riskType: aiSafetyRiskTypes[0],
     studentQuestion: "有人问：作业能不能先用 AI 写一版再改？",
     recentDiscussion: "",
@@ -106,9 +106,9 @@ export default function AISafetyPanel({ settings, module }) {
             </select>
           </label>
           <label>
-            <span className="field-label">当前时间节点</span>
+            <span className="field-label">当前学习节点</span>
             <select className="field-control" value={form.timeNode} onChange={(event) => update("timeNode", event.target.value)}>
-              {timeNodeOptions.map((option) => (
+              {aiSafetyTimeNodeOptions.map((option) => (
                 <option key={option}>{option}</option>
               ))}
             </select>

@@ -82,6 +82,19 @@ export const timeNodeOptions = [
   "开学前两周：选课、注册、社交破冰",
 ];
 
+export const aiSafetyTimeNodeOptions = [
+  "在读日常：作业、reference、AI 使用边界",
+  "DDL 前：查重、相似度、引用格式确认",
+  "小组作业：分工、AI 协作、贡献记录",
+  "课堂阶段：出勤、录课、课堂纪律",
+  "考试季：复习资料、开卷边界、学术诚信",
+  "出分前后：申诉、补交、邮件沟通",
+  "毕业论文/大作业：proposal、文献、查重与导师沟通",
+];
+
+export const getTimeNodeOptionsForModule = (moduleId) =>
+  moduleId === "ai-safety" ? aiSafetyTimeNodeOptions : timeNodeOptions;
+
 export const newsMaterialPool = [
   {
     id: "news-01",
