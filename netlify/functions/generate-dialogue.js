@@ -151,6 +151,22 @@ function buildFallbackTurns({ moduleId, angle, school, seed }) {
   const [city, date] = cityPairs[seed % cityPairs.length];
   const topic = compactTitle(angle) || "这个事";
   const schoolName = compactTitle(school);
+  const angleText = String(angle || "");
+
+  if (/行李|行李箱|托运|随身|收拾|打包/i.test(angleText)) {
+    return [
+      { speakerType: "student", speaker: studentName(seed, 0), text: "大家行李都开始收了吗，我现在完全不知道从哪下手" },
+      { speakerType: "student", speaker: studentName(seed, 1), text: "我也是。。感觉什么都想带，箱子肯定塞不下" },
+      { speakerType: "student", speaker: studentName(seed, 2), text: "我准备先看机票行李额，再决定几个箱子" },
+      { speakerType: "senior", speaker: "学姐号", text: "可以先按航司额度倒着收，托运和随身分开看，别一上来就硬塞。" },
+      { speakerType: "student", speaker: studentName(seed, 3), text: "那床品要不要从国内带啊，感觉又占地方" },
+      { speakerType: "student", speaker: studentName(seed, 4), text: "我可能只带一点应急的，别的落地再买" },
+      { speakerType: "student", speaker: studentName(seed, 5), text: "药和证件这些是不是都随身比较稳" },
+      { speakerType: "senior", speaker: "学姐号", text: "证件、药、电脑这些随身放，食品药品不确定的提前看下海关申报。" },
+      { speakerType: "student", speaker: studentName(seed, 6), text: "懂了，我先把必带和可落地买的分开列" },
+      { speakerType: "student", speaker: studentName(seed, 7), text: "有收完的uu能不能发个大概清单，我想抄作业" },
+    ];
+  }
 
   if (moduleId === "flight") {
     return [
@@ -446,7 +462,10 @@ ${angles.map((angle, index) => `${index + 1}. ${angle}`).join("\n")}
 8. 禁止使用：根据资料显示、大家可以同步下进度、多关注学校系统和邮件、最卡的是、卡在哪、卡在、建议大家、大家现在更想确认。
 9. 可用真实群聊语气：我也想知道、有人看过吗、我刚刷到、别急着下手、瞅瞅价格浮动、同情况的说下、好嘟、蹲、救救、姐妹这个咋查呀。
 10. 不要和已发布对话一字不差；可以换出发城市、时间、问法或聊天路径。
-11. 只输出 JSON，不要解释。
+11. 如果员工输入了最近群内讨论，必须紧贴这个问题；例如问“行李怎么收”，就围绕行李箱、托运/随身、航司额度、落地买什么展开，不要跳到押金/CAS。
+12. 当前群模块只决定发布场景，不限制资料来源；校友群问行李，也可以参考飞友群/行李资料。
+13. 禁止输出资料处理痕迹：OCR整理、截图、已匿名化、成员A、R整理、可检索标签。
+14. 只输出 JSON，不要解释。
 
 质量标准：
 - 读起来要像学生在群里顺手发的，不像客服、不像公告、不像小红书笔记。
@@ -486,7 +505,9 @@ ${angles.map((angle, index) => `${index + 1}. ${angle}`).join("\n")}
     fallbackReason = "missing_model_env";
   }
 
-  if (!rawDialogues.length && fallbackReason === "missing_model_env") {
+  if (!rawDialogues.length) {
+    fallbackUsed = true;
+    fallbackReason = fallbackReason || "model_empty_response";
     rawDialogues = angles.map((angle, index) =>
       buildFallbackDialogue({
         school,
@@ -499,20 +520,6 @@ ${angles.map((angle, index) => `${index + 1}. ${angle}`).join("\n")}
         historicalDialogues,
         publishedKeySet,
       })
-    );
-  }
-
-  if (!rawDialogues.length) {
-    return Response.json(
-      {
-        error: "MODEL_TIMEOUT",
-        message: "模型接口这次超过 55 秒还没返回。为了避免生成模板腔内容，本次没有使用兜底话术，请重新点一次生成。",
-        fallbackUsed: false,
-        fallbackReason,
-        evidence,
-        historyDialogues: historicalDialogues,
-      },
-      { status: 504 }
     );
   }
 

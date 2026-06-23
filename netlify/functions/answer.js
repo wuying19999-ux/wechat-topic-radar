@@ -3,7 +3,12 @@ import { searchKnowledge } from "./_shared/knowledge.js";
 
 function buildFallbackAnswer({ question, evidence }) {
   const hasEvidence = evidence.length > 0;
-  const evidenceHint = hasEvidence ? evidence[0].text.slice(0, 80) : "";
+  const evidenceHint = hasEvidence
+    ? evidence[0].text
+        .replace(/OCR整理|已匿名化|截图内未显示具体发送时间|成员[A-Z]|可检索标签|话题总结/g, "")
+        .replace(/\s+/g, " ")
+        .slice(0, 100)
+    : "";
 
   if (/早餐|早饭|包餐|meal|catered/i.test(question || "")) {
     return {
@@ -20,6 +25,15 @@ function buildFallbackAnswer({ question, evidence }) {
       peerCopy: "我也还在看票，准备多对比几个平台，不想太早下手但也怕后面涨。",
       followUp: "大家现在主要看哪个出发城市？有看到合适价格的可以互相喊一下。",
       riskNote: "机票价格和规则变化快，以购票平台和航司页面为准。",
+    };
+  }
+
+  if (/行李|行李箱|托运|随身|收拾|打包/i.test(question || "")) {
+    return {
+      seniorCopy: "行李可以先按航司额度倒着收，先定托运几件、随身几件，再看哪些国内带、哪些落地买。",
+      peerCopy: "我也在收行李，准备先看票面行李额。常用药、证件、第一周马上用的先带，床品小家电这种我可能到那边再买。",
+      followUp: "大家第一次去准备带几个箱子？有没有已经问过航司行李额的？",
+      riskNote: "行李额度、尺寸和入境限制要以购票页面、航司规则和澳洲海关要求为准。",
     };
   }
 
@@ -111,12 +125,22 @@ export default async (req) => {
   const { school, country, moduleId, moduleName, question, timeNode } = body;
 
   const modelConfig = getModelConfig();
+  const evidence = searchKnowledge({ school, moduleId, question });
 
   if (!modelConfig) {
-    return Response.json({ error: "Missing DEEPSEEK_API_KEY or NECO_API_KEY/NECO_BASE_URL" }, { status: 500 });
-  }
+    const answer = buildFallbackAnswer({ question, evidence });
 
-  const evidence = searchKnowledge({ school, moduleId, question });
+    return Response.json({
+      seniorAnswer: answer.seniorCopy,
+      peerAnswer: answer.peerCopy,
+      followUp: answer.followUp,
+      riskNote: answer.riskNote,
+      evidence,
+      fallbackUsed: true,
+      fallbackReason: "missing_model_env",
+      provider: "Local",
+    });
+  }
 
   const openai = new OpenAI({
     apiKey: modelConfig.apiKey,
@@ -145,13 +169,17 @@ ${evidence.map((item, index) => `${index + 1}.【${item.sourceType}】${item.sou
 
 语气要求：
 像微信群真人，不要百度百科，不要模板腔。
-禁止使用：卡在哪、最卡的是、大家可以同步下进度、多关注学校系统和邮件、根据资料显示。
+禁止使用：卡在哪、最卡的是、大家可以同步下进度、多关注学校系统和邮件、根据资料显示、OCR整理、截图、已匿名化、成员A、R整理。
 学姐口吻要简单明了，像群里随手提醒，不要写成公告。
 少用“建议”“最终以……为准”“请大家注意”这种官方表达。
 可以用：先看看、别急着、瞅瞅、对比一下、问问同情况的同学、发出来大家一起看。
 例如问机票时，学姐口吻可以是：“大家可以多刷点平台做对比，瞅瞅价格浮动。”
 
 准确性要求：
+当前问题必须优先回答用户问的具体内容，不要因为当前模块是校友群就跳回 CAS/押金。
+如果用户问行李、行李箱、托运、随身或怎么收，要优先使用资料里的行李/航司/海关/行李清单信息。
+行李类回答可以说：先看票面或航司行李额、托运和随身分开收、重要文件随身、床品小家电不一定都从国内带、澳洲海关/申报类物品提前核对。
+不能编具体航司免费额度；除非资料里明确写了对应航司，否则只说“看票面/航司页面”。
 如果资料里没有明确写“免费早餐/包餐/meal included/catered”，不要直接说“没有免费早餐”。
 更稳妥的说法是：“目前资料里没看到明确写免费早餐，最好按具体公寓官网或合同确认。”
 如果资料不足，要直接说明“我这边资料里没看到明确答案”，不要编。

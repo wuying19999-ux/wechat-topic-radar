@@ -164,7 +164,7 @@ export default function App() {
           historyDialogues: localResult.historyDialogues || [],
           isGeneratingDialogue: true,
           generationError: "",
-          generationNotice: "已用本地资料库生成，可先复制使用；系统会尝试补充模型优化版本。",
+          generationNotice: "已先按资料库生成一版；系统正在尝试用模型优化语气。",
           lastGeneratedAt: new Date().toISOString(),
         }))
       );
@@ -176,7 +176,7 @@ export default function App() {
             isGeneratingDialogue: false,
             generationError: "",
             generationNotice:
-              "AI 安全已用本地资料库生成；为保证安全边界和真实语气，本模块暂不自动调用外部模型。",
+              "AI 安全已按专项资料库生成；涉及学术诚信边界，发布前请人工看一眼。",
           }))
         );
         return;
@@ -205,7 +205,7 @@ export default function App() {
             isGeneratingDialogue: false,
             generationError: "",
             generationNotice: apiResult.fallbackUsed
-              ? "已生成完成：当前使用本地资料库版本，模型优化本次未覆盖。"
+              ? "已生成完成：模型本次未稳定返回，已保留资料库版本，可直接复制使用。"
               : `已用 ${apiResult.provider || "DeepSeek"} 优化生成；发布前仍需人工复核。`,
             lastGeneratedAt: new Date().toISOString(),
           }))
@@ -217,7 +217,7 @@ export default function App() {
             ...moduleState,
             isGeneratingDialogue: false,
             generationError: "",
-            generationNotice: "已生成完成：当前使用本地资料库版本，可直接复制使用；模型优化稍后可再试。",
+            generationNotice: "模型优化暂时没回来，已保留资料库版本，可直接复制使用。",
           }))
         );
       }
