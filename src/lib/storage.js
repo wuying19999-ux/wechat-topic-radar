@@ -64,6 +64,13 @@ export function createInitialState() {
         "不算晚，可以先把预算、入住时间、想住区域发出来。群里有同时间到的同学，一般就能接上一起看。",
       peerAnswer:
         "我也还没完全定。我准备直接发：预算____，想住____附近，入住时间____，能不能接受合租____。有没有同样语言班/同时间到的同学一起看一下？",
+      isGenerating: false,
+      statusText: "",
+      startedAt: 0,
+      completedAt: 0,
+      provider: "",
+      searchMode: "knowledge",
+      error: "",
     },
     conversation: {
       prompt: "格拉6月",

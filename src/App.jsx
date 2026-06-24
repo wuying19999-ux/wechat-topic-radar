@@ -375,32 +375,61 @@ export default function App() {
   }
 
   async function handleGenerateAnswer() {
-  try {
-    const answer = await answerQuestion({
-      school: state.settings.school,
-      country: state.settings.country,
-      moduleId: selectedModule.id,
-      moduleName: selectedModule.name,
-      question: state.qa.question,
-      timeNode: selectedModuleState.inputs.timeNode
-    });
-
     setState((current) => ({
       ...current,
       qa: {
         ...current.qa,
-        seniorAnswer: answer.seniorAnswer,
-        peerAnswer: answer.peerAnswer,
-        followUp: answer.followUp,
-        riskNote: answer.riskNote,
-        evidence: answer.evidence || []
-      }
+        isGenerating: true,
+        statusText: "正在检索学校资料与可用来源…",
+        startedAt: Date.now(),
+        error: "",
+      },
     }));
-  } catch (error) {
-    console.error(error);
-    alert("AI 回答暂时没生成出来，请稍后再试一次。");
+
+    try {
+      const answer = await answerQuestion({
+        school: state.settings.school,
+        country: state.settings.country,
+        moduleId: selectedModule.id,
+        moduleName: selectedModule.name,
+        question: state.qa.question,
+        timeNode: selectedModuleState.inputs.timeNode
+      });
+
+      setState((current) => ({
+        ...current,
+        qa: {
+          ...current.qa,
+          seniorAnswer: answer.seniorAnswer,
+          peerAnswer: answer.peerAnswer,
+          followUp: answer.followUp,
+          riskNote: answer.riskNote,
+          evidence: answer.evidence || [],
+          provider: answer.provider || "",
+          searchMode: answer.searchMode || "knowledge",
+          isGenerating: false,
+          statusText: answer.fallbackUsed
+            ? "模型未稳定返回，已使用资料库回答。"
+            : answer.searchMode === "live"
+              ? "已完成实时检索与双口吻改写。"
+              : "已完成资料库检索与双口吻改写。",
+          completedAt: Date.now(),
+          error: "",
+        }
+      }));
+    } catch (error) {
+      console.error(error);
+      setState((current) => ({
+        ...current,
+        qa: {
+          ...current.qa,
+          isGenerating: false,
+          statusText: "这次没有生成成功，请再试一次。",
+          error: error.message || "生成失败",
+        },
+      }));
+    }
   }
-}
 
   return (
     <div className="min-h-screen px-4 py-4 md:px-6 lg:px-8">

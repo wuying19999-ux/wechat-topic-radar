@@ -1,6 +1,103 @@
 import OpenAI from "openai";
 import { searchKnowledge } from "./_shared/knowledge.js";
 
+const officialDomainsBySchool = {
+  UCL: ["ucl.ac.uk"],
+  KCL: ["kcl.ac.uk"],
+  曼彻斯特大学: ["manchester.ac.uk"],
+  布里斯托大学: ["bristol.ac.uk"],
+  华威大学: ["warwick.ac.uk"],
+  格拉斯哥大学: ["gla.ac.uk"],
+  杜伦大学: ["durham.ac.uk"],
+  谢菲大学: ["sheffield.ac.uk"],
+  悉尼大学: ["sydney.edu.au"],
+  墨尔本大学: ["unimelb.edu.au"],
+  香港理工大学: ["polyu.edu.hk"],
+};
+
+async function searchLiveWeb({ school, question }) {
+  const apiKey = Netlify.env.get("TAVILY_API_KEY");
+  if (!apiKey) return [];
+
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 12000);
+
+  try {
+    const response = await fetch("https://api.tavily.com/search", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        api_key: apiKey,
+        query: `${school} ${question} official`,
+        search_depth: "advanced",
+        max_results: 4,
+        include_answer: false,
+        include_raw_content: false,
+        include_domains: officialDomainsBySchool[school] || [],
+      }),
+      signal: controller.signal,
+    });
+
+    if (!response.ok) {
+      throw new Error(`search_http_${response.status}`);
+    }
+
+    const data = await response.json();
+    return (data.results || []).slice(0, 4).map((result, index) => ({
+      id: `live-search-${index}-${result.url}`,
+      sourceType: "实时官网搜索",
+      sourceTitle: result.title || result.url,
+      text: String(result.content || "").replace(/\s+/g, " ").trim().slice(0, 700),
+      url: result.url,
+      score: result.score || 0,
+    }));
+  } catch (error) {
+    console.warn("Live search unavailable, continuing with knowledge base:", error?.message || error);
+    return [];
+  } finally {
+    clearTimeout(timeoutId);
+  }
+}
+
+function normalizeForSimilarity(value = "") {
+  return String(value)
+    .toLowerCase()
+    .replace(/[，。！？、；：“”‘’（）,.!?;:'"()\s]/g, "");
+}
+
+function answerSimilarity(left, right) {
+  const a = normalizeForSimilarity(left);
+  const b = normalizeForSimilarity(right);
+  if (!a || !b) return 0;
+  if (a === b || a.includes(b) || b.includes(a)) return 1;
+
+  const makeBigrams = (value) => {
+    const grams = new Set();
+    for (let index = 0; index < value.length - 1; index += 1) {
+      grams.add(value.slice(index, index + 2));
+    }
+    return grams;
+  };
+  const aGrams = makeBigrams(a);
+  const bGrams = makeBigrams(b);
+  const intersection = [...aGrams].filter((gram) => bGrams.has(gram)).length;
+  const union = new Set([...aGrams, ...bGrams]).size;
+  return union ? intersection / union : 0;
+}
+
+function buildDistinctPeerAnswer({ question, followUp }) {
+  if (/行李|行李箱|托运|随身|收拾|打包/i.test(question || "")) {
+    return "我也刚开始收，准备先把证件、电脑和第一周要用的放随身，剩下的再按航司额度塞。你们都是带几个箱子呀？";
+  }
+  if (/机票|航班|飞|出发/i.test(question || "")) {
+    return "我也还在刷票，准备把价格、退改和行李额放一起比，不只看最低价。有人和我出发时间差不多吗？";
+  }
+  if (/住宿|宿舍|公寓|租房|室友/i.test(question || "")) {
+    return "我也在看这个，准备把预算、入住时间和想住的区域先列出来，再问问有没有同时间到的同学一起看。";
+  }
+  return `我也在查这个，先把自己现在看到的情况说清楚，再问问有没有同情况的同学。${followUp || ""}`;
+}
+
 function buildFallbackAnswer({ question, evidence }) {
   const hasEvidence = evidence.length > 0;
   const evidenceHint = hasEvidence
@@ -60,7 +157,9 @@ function buildFallbackAnswer({ question, evidence }) {
 
 async function createCompletionWithTimeout({ openai, model, prompt }) {
   const controller = new AbortController();
-  const timeoutMs = 55000;
+  // Leave enough time for the function to return a structured local fallback
+  // before Netlify's synchronous function limit closes the connection.
+  const timeoutMs = 38000;
   let timeoutId;
   const timeout = new Promise((_, reject) => {
     timeoutId = setTimeout(() => {
@@ -72,7 +171,7 @@ async function createCompletionWithTimeout({ openai, model, prompt }) {
     {
       model,
       temperature: 0.2,
-      max_tokens: 900,
+      max_tokens: 520,
       messages: [{ role: "user", content: prompt }],
       response_format: { type: "json_object" },
     },
@@ -125,7 +224,10 @@ export default async (req) => {
   const { school, country, moduleId, moduleName, question, timeNode } = body;
 
   const modelConfig = getModelConfig();
-  const evidence = searchKnowledge({ school, moduleId, question });
+  const knowledgeEvidence = searchKnowledge({ school, moduleId, question }).slice(0, 6);
+  const liveEvidence = await searchLiveWeb({ school, question });
+  const evidence = [...liveEvidence, ...knowledgeEvidence].slice(0, 8);
+  const searchMode = liveEvidence.length ? "live" : "knowledge";
 
   if (!modelConfig) {
     const answer = buildFallbackAnswer({ question, evidence });
@@ -139,6 +241,7 @@ export default async (req) => {
       fallbackUsed: true,
       fallbackReason: "missing_model_env",
       provider: "Local",
+      searchMode,
     });
   }
 
@@ -156,7 +259,7 @@ export default async (req) => {
 时间节点：${timeNode}
 用户问题：${question}
 
-资料依据：
+资料依据（实时官网结果优先，其次为已上传学校资料）：
 ${evidence.map((item, index) => `${index + 1}.【${item.sourceType}】${item.sourceTitle}：${item.text}`).join("\n")}
 
 请输出 JSON，格式必须是：
@@ -174,6 +277,12 @@ ${evidence.map((item, index) => `${index + 1}.【${item.sourceType}】${item.sou
 少用“建议”“最终以……为准”“请大家注意”这种官方表达。
 可以用：先看看、别急着、瞅瞅、对比一下、问问同情况的同学、发出来大家一起看。
 例如问机票时，学姐口吻可以是：“大家可以多刷点平台做对比，瞅瞅价格浮动。”
+
+两个身份必须明显不同：
+- seniorCopy：直接回答问题，给 1-2 个最关键的做法或判断，语气像有经验的学姐。
+- peerCopy：用第一人称说“我准备怎么做/我现在是什么情况”，最后自然问一句群友，像同届学生交流。
+- peerCopy 禁止复述 seniorCopy，不能只是把“可以”改成“我也觉得可以”。
+- 两段不要使用相同开头，不要连续出现相同短语，核心句式必须不同。
 
 准确性要求：
 当前问题必须优先回答用户问的具体内容，不要因为当前模块是校友群就跳回 CAS/押金。
@@ -197,6 +306,12 @@ ${evidence.map((item, index) => `${index + 1}.【${item.sourceType}】${item.sou
   try {
     const completion = await createCompletionWithTimeout({ openai, model: modelConfig.model, prompt });
     answer = JSON.parse(completion.choices[0].message.content);
+    if (answerSimilarity(answer.seniorCopy, answer.peerCopy) >= 0.58) {
+      answer.peerCopy = buildDistinctPeerAnswer({
+        question,
+        followUp: answer.followUp,
+      });
+    }
   } catch (error) {
     fallbackUsed = true;
     fallbackReason = error?.message || "model_failed";
@@ -213,6 +328,7 @@ ${evidence.map((item, index) => `${index + 1}.【${item.sourceType}】${item.sou
     fallbackUsed,
     fallbackReason,
     provider: modelConfig.provider,
+    searchMode,
   });
 };
 
