@@ -7,7 +7,7 @@ import TopControls from "./components/TopControls";
 import TrialDataDashboard from "./components/TrialDataDashboard";
 import TestingBugDashboard from "./components/TestingBugDashboard";
 import { getDefaultCountryForSchool, groupModules } from "./data/sampleData";
-import { answerQuestion, savePublishedTopic, saveTrialRecord } from "./lib/apiClient";
+import { answerQuestion, generateGroupDialogue, savePublishedTopic, saveTrialRecord } from "./lib/apiClient";
 import { generateLocalGroupDialogues } from "./lib/localDialogueEngine";
 import { loadState, saveState } from "./lib/storage";
 
@@ -162,12 +162,53 @@ export default function App() {
             moduleState
           ),
           historyDialogues: localResult.historyDialogues || [],
-          isGeneratingDialogue: false,
+          isGeneratingDialogue: true,
           generationError: "",
-          generationNotice: "已按过往聊天记录生成，可直接复制使用。",
+          generationNotice: "已先按过往聊天记录生成，DeepSeek 正在后台优化语气。",
           lastGeneratedAt: new Date().toISOString(),
         }))
       );
+
+      try {
+        const apiResult = await generateGroupDialogue({
+          school: state.settings.school,
+          country: state.settings.country,
+          moduleId,
+          moduleName: selectedModule.name,
+          activity: moduleSnapshot.inputs.activity,
+          timeNode: moduleSnapshot.inputs.timeNode,
+          recentDiscussion: moduleSnapshot.inputs.recentDiscussion,
+          publishedDialogues: moduleSnapshot.publishedDialogues || [],
+        });
+
+        setState((current) =>
+          updateModule(current, moduleId, (moduleState) => ({
+            ...moduleState,
+            dialogues:
+              !apiResult.fallbackUsed && apiResult.dialogues?.length
+                ? decorateDialogues(apiResult.dialogues, moduleState)
+                : moduleState.dialogues,
+            historyDialogues: apiResult.historyDialogues || moduleState.historyDialogues || [],
+            isGeneratingDialogue: false,
+            generationError: "",
+            generationNotice:
+              !apiResult.fallbackUsed && apiResult.dialogues?.length
+                ? "DeepSeek 已结合资料库完成优化，可直接复制使用。"
+                : "模型本次未稳定返回，已保留本地真实聊天记录版本。",
+            lastGeneratedAt: new Date().toISOString(),
+          }))
+        );
+      } catch (apiError) {
+        console.warn("DeepSeek dialogue enhancement failed, keeping local result:", apiError);
+        setState((current) =>
+          updateModule(current, moduleId, (moduleState) => ({
+            ...moduleState,
+            isGeneratingDialogue: false,
+            generationError: "",
+            generationNotice: "模型本次未稳定返回，已保留本地真实聊天记录版本。",
+          }))
+        );
+      }
     } catch (error) {
       console.error(error);
       setState((current) =>
